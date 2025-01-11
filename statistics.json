@@ -1,0 +1,20 @@
+{
+    "USDbalance": 1666.8677499999994,
+    "CRYPTbalance": 0.1,
+    "timespent": 50,
+    "Corderbook": [
+        {
+            "type": "limbuy",
+            "percentfilled": 100,
+            "cancelled": false,
+            "terminated": true,
+            "totalamount": 0.1,
+            "transacted_amount": 0.1,
+            "percentchange": 0.01,
+            "USDval": 8333.13225,
+            "OGPL": 98050.08,
+            "NPL": 98040.274992,
+            "tax": 0.15
+        }
+    ]
+}

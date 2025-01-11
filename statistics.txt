@@ -1,0 +1,4 @@
+USDbalance=1000
+CRYPTbalance=0
+timespent=0
+Corderbook=[]
