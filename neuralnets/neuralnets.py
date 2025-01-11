@@ -57,7 +57,7 @@ class LSTM_model():
                 y.append(data[i + seq_length, 3])  # Predict the 'close' price
             return np.array(X), np.array(y)
 
-        SEQ_LENGTH = 3  # Sequence length, amount of days before prediction
+        SEQ_LENGTH = 14  # Sequence length, amount of days before prediction
         X, y = create_sequences(scaled_data, SEQ_LENGTH)
 
         # Split into training and testing sets
@@ -170,22 +170,30 @@ def fetch_candles(product_id, start_time, end_time, granularity=60):
         print(f"Error: {response.status_code}, {response.text}")
         return []
 
-def historic_simul(timeframe):
-    #granularity is measure of candle, 3600 hour, 600 minute, 60 second, etc.
-    # Define start and end times
+def historic_simul(timeframe, days):
+   # Fetch historical candles in chunks of 300 days.
+    totallist = []
     end_time = datetime.now()
-    start_time = end_time - timedelta(days=300)  #how many days of data to train
-    #3600 for hours should be 72 candles #86400 for day get 14 candles
+    # Loop to fetch data in 300-day chunks
     if timeframe == "1D":
-        historic_candles_1D = fetch_candles("BTC-USD", start_time, end_time, 86400)
-        #result is a ordered list of lists of candles in format: [time, low, high, open, close, volume]
-    return historic_candles_1D
+        for i in range(0, (days // 300) + (1 if days % 300 != 0 else 0)):
+            start_time = end_time - timedelta(days=300)
+            # Fetch candles and append to the list
+            candles = fetch_candles("BTC-USD", start_time, end_time, 86400)
+            totallist.append(candles)
+            # Update end_time for the next iteration
+            end_time = start_time
+        # Flatten the list of lists
+        flattened_list = [item for sublist in totallist for item in sublist]
+        print(len(flattened_list))
+    return flattened_list
 
 
 
 
 
 prevmod = 0
-LSTM_DAY_TRACKER = LSTM_model(prevmod, historic_simul("1D"))
+#update in days sets of 300
+LSTM_DAY_TRACKER = LSTM_model(prevmod, historic_simul("1D", 900))
 print(LSTM_DAY_TRACKER.traindata)
 print(LSTM_DAY_TRACKER.generate_model())
