@@ -7,8 +7,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import mplfinance as mpf
 from classes import user, candle, check_orders, UserLimitOrder, UserBuyLimitOrder, UserSellLimitOrder, UserStopSellLimitOrder
-from strategies import strategy1
-from neuralnets import LSTM_model
+from execute.strategies import strategy1
+from neuralnets.neuralnets import LSTM_model
 
 import json
 import requests
