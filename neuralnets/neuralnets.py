@@ -69,7 +69,7 @@ class LSTM_model():
         model = Sequential([
             LSTM(20, return_sequences=True, input_shape=(SEQ_LENGTH, X.shape[2])),
             Dropout(0.2),
-            LSTM(30),
+            LSTM(20),
             Dropout(0.2),
             Dense(1)
         ])
