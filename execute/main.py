@@ -7,11 +7,15 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import mplfinance as mpf
 from classes import user, candle, check_orders, UserLimitOrder, UserBuyLimitOrder, UserSellLimitOrder, UserStopSellLimitOrder
-from execute.strategies import strategy1
-from neuralnets.neuralnets import LSTM_model
-
+from strategies import strategy1
+from neuralnets import LSTM_model
+import numpy as np
 import json
 import requests
+from tensorflow.keras.models import model_from_json
+import joblib
+    
+
 
 
 API_KEY = "organizations/a53e9113-6e00-4977-9ed9-39625d25e778/apiKeys/9b08db99-7161-4c48-8284-a40896be0f7e"
@@ -22,7 +26,6 @@ client = EnhancedRESTClient(api_key=API_KEY, api_secret=PRIV_KEY)
 PRODUCT = "BTC-USD"
 STRATUSE = strategy1()
 LENGTH_PER_MIN = 5
-
 
 def set_time_to_utc_minus_5():
     # Get the current UTC time
@@ -144,16 +147,28 @@ def fetch_candles(product_id, start_time, end_time, granularity=60):
         print(f"Error: {response.status_code}, {response.text}")
         return []
 
-def historic_simul(timeframe):
+def input_LSTM(timeframe):
     #granularity is measure of candle, 3600 hour, 600 minute, 60 second, etc.
     # Define start and end times
     end_time = datetime.now()
-    start_time = end_time - timedelta(days=14)  # Last 24 hours 
+    start_time = end_time - timedelta(days=7)  # Last 7 days
     #3600 for hours should be 72 candles #86400 for day get 14 candles
     if timeframe == "1D":
         historic_candles_1D = fetch_candles(PRODUCT, start_time, end_time, 86400)
         #result is a ordered list of lists of candles in format: [time, low, high, open, close, volume]
-    return historic_candles_1D
+    data = np.array([
+            historic_candles_1D
+        ])
+        # Remove the batch dimension, shape becomes (7, 6)
+    data_2d = data[0]
+    data_2d = np.flip(data_2d, axis=0)
+    columns = ['time', 'low', 'high', 'open', 'close', 'volume']
+    df = pd.DataFrame(data_2d, columns=columns)
+        # Drop the 'time' column (not useful for prediction)
+    df = df.drop(columns=['time'])
+    print(df)
+    print(df.shape)
+    return df
 
 
 
@@ -199,9 +214,16 @@ def main():
     continueRun = True
     #resets every 60 seconds
     seconds_value_array = []
-    prevmod=0
-    LSTM_DAY_TRACKER = LSTM_model(prevmod, historic_simul("1D"))
-    print(LSTM_DAY_TRACKER.inpdata)
+    with open("model.json", "r") as json_file:
+            loaded_model_json = json_file.read()
+    loaded_model = model_from_json(loaded_model_json)
+    loaded_model.load_weights("model_weights.weights.h5")
+    with open("training_data.json", "r") as json_file:
+        training_data = json.load(json_file)
+    scaler = joblib.load("scaler.pkl")
+    LSTM_DAY_TRACKER = LSTM_model(loaded_model, training_data, scaler)
+    # LSTM_DAY_TRACKER.generate_model()
+    LSTM_DAY_TRACKER.use_model(input_LSTM("1D"))
     #tracks minutes, never resets as of now
     min_counter = []
     lows = []

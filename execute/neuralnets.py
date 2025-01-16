@@ -10,24 +10,32 @@ from keras.callbacks import EarlyStopping
 from tensorflow.keras.layers import Dropout
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from tensorflow.keras.models import model_from_json
+import json
+import joblib
 
 # 1. Load and preprocess the data
 # Replace 'your_data.csv' with your stock price data file
 
-
+#how many days to shift to avoid lag
+SHIFT_PREDICTION = 4
 
 class RNN_model():
     def __init__(self):
         pass
-    
+
+def shift_left(array):
+    if array.size > 0:  # Check if array is non-empty
+        return np.roll(array, -1)  # Roll array left by 1 position
+
+
 
 
 
 class LSTM_model():
-    def __init__(self, prevmodel, traindata):
+    def __init__(self, prevmodel, traineddata, oldscaler):
         self.model = prevmodel
-        self.traindata = traindata
-        self.testdata = []
+        self.traindata = traineddata
+        self.scaler = oldscaler
     def generate_model(self):
         # 1. Load the data
         # Assuming your data is a 2D NumPy array where each row is [time, low, high, open, close, volume]
@@ -35,7 +43,7 @@ class LSTM_model():
             # Example candles: [time, low, high, open, close, volume]
             self.traindata
         ])
-        # Remove the batch dimension, shape becomes (14, 6)
+        # Remove the batch dimension, shape becomes (900, 6)
         data_2d = data[0]
         data_2d = np.flip(data_2d, axis=0)
         print(data_2d.shape)
@@ -48,6 +56,7 @@ class LSTM_model():
         # 2. Normalize the data
         scaler = MinMaxScaler(feature_range=(0, 1))
         scaled_data = scaler.fit_transform(df)
+        joblib.dump(scaler, "scaler.pkl") #save scalar conversion
         print(df.shape)
         # 3. Create sequences
         def create_sequences(data, seq_length):
@@ -57,7 +66,7 @@ class LSTM_model():
                 y.append(data[i + seq_length, 3])  # Predict the 'close' price
             return np.array(X), np.array(y)
 
-        SEQ_LENGTH = 14  # Sequence length, amount of days before prediction
+        SEQ_LENGTH = 7  # Sequence length, amount of days before prediction
         X, y = create_sequences(scaled_data, SEQ_LENGTH)
 
         # Split into training and testing sets
@@ -90,14 +99,6 @@ class LSTM_model():
         print(predicted_prices)
         print(predicted_prices.shape)
         # Transform predictions and actual values back to original scale
-        close_prices = data_2d[:, 3].reshape(-1, 1)
-        normalized_close = scaler.fit_transform(close_prices)
-        print("Normalized Close Prices:")
-        print(normalized_close)
-        print("real closed prices: ")
-        print(close_prices)
-        print("denormalized close prices: ")
-        print(scaler.inverse_transform(normalized_close))
         predicted_prices = scaler.inverse_transform(
             np.hstack([np.zeros((len(predicted_prices), df.shape[1] - 1)), predicted_prices])
         )[:, -1]  # Extract the predicted 'close' price
@@ -106,12 +107,17 @@ class LSTM_model():
         actual_prices = scaler.inverse_transform(
             np.hstack([np.zeros((len(y_test), df.shape[1] - 1)), y_test.reshape(-1, 1)])
         )[:, -1]
+        #shifting whole predictions to 3 days ahead (more accuracy)        
+        for i in range(SHIFT_PREDICTION):
+            predicted_prices = shift_left(predicted_prices)
+        predicted_prices = predicted_prices[:-SHIFT_PREDICTION]
+        actual_prices = actual_prices[:-SHIFT_PREDICTION]
         print("predicted prices")
         print(predicted_prices)
         self.model = model
         print("actual prices: ")
         print(actual_prices)
-         #statistics:
+        #statistics:
         mse_test = mean_squared_error(actual_prices, predicted_prices)
         rmse_test = np.sqrt(mse_test)
         mae_test = mean_absolute_error(actual_prices, predicted_prices)
@@ -130,6 +136,8 @@ class LSTM_model():
             json_file.write(model_json)
         # Save the weights to HDF5
         model.save_weights("model_weights.weights.h5")
+        with open("training_data.json", "w") as json_file:
+            json.dump(self.traindata, json_file, indent=4)
         
         # 7. Plot the results
         plt.figure(figsize=(10, 6))
@@ -140,12 +148,32 @@ class LSTM_model():
         plt.ylabel('Price')
         plt.legend()
         plt.show()
-    def use_model():
-        with open("model.json", "r") as json_file:
-            loaded_model_json = json_file.read()
-        loaded_model = model_from_json(loaded_model_json)
-        # Load the weights into the model
-        loaded_model.load_weights("model_weights.weights.h5")
+    def use_model(self, recent_data):
+        """
+        Use the trained model to predict the next price based on the last 5 days of data.
+        
+        Parameters:
+            recent_data (np.array): A NumPy array of shape (7, num_features) containing the last 5 days of data.
+            7 rows
+
+        Returns:
+            float: Predicted price for the price in 4 days.
+        """
+        # Ensure the recent_data is scaled similarly to the training data
+        scaler = self.scaler
+        # Use the training data to fit the scaler
+        scaled_recent_data = scaler.transform(recent_data)
+        scaled_recent_data = scaled_recent_data.reshape(1, recent_data.shape[0], recent_data.shape[1])
+
+        # Make the prediction
+        predicted_price_scaled = self.model.predict(scaled_recent_data)
+        # Transform the predicted price back to the original scale
+        predicted_price = scaler.inverse_transform(
+            np.hstack([np.zeros((1, recent_data.shape[1] - 1)), predicted_price_scaled])
+        )[:, -1]
+        print("price in three days " + f"{predicted_price}")
+        return predicted_price[0]
+
         
 
 
@@ -193,7 +221,10 @@ def historic_simul(timeframe, days):
 
 
 prevmod = 0
+prevweights = 0
 #update in days sets of 300
-LSTM_DAY_TRACKER = LSTM_model(prevmod, historic_simul("1D", 900))
-print(LSTM_DAY_TRACKER.traindata)
-print(LSTM_DAY_TRACKER.generate_model())
+
+#testing
+#LSTM_DAY_TRACKER = LSTM_model(prevmod, historic_simul("1D", 900), 0)
+#print(LSTM_DAY_TRACKER.traindata)
+#print(LSTM_DAY_TRACKER.generate_model())
