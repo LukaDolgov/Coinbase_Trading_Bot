@@ -15,11 +15,10 @@ import requests
 from tensorflow.keras.models import model_from_json
 import joblib
 
+#for security I have used an environment variable for my private key
 from dotenv import load_dotenv
 import os
-
 load_dotenv("API_KEY.env")
-
 # Access the API key
 api_key = os.getenv('API_KEY')
 PUBLIC_KEY = "organizations/a53e9113-6e00-4977-9ed9-39625d25e778/apiKeys/9b08db99-7161-4c48-8284-a40896be0f7e"
