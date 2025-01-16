@@ -72,6 +72,22 @@ class strategy1():
                 countlosses += 1
         return float((countwins + 1) / countlosses) * 100 #in percent
 
+#LSTM model Long-term Trading and analysis
 class strategy2():
     def __init__(self):
+        self.candles = []
+        self.RR = 1/1
+        self.numtrades = 0
+        self.currmin = 0
+        self.winrate = 0
+        self.reset = 0
+        self.ENTtrades = []
+        self.IPSHtrades = []
+        self.IPSLtrades = []
+        self.price_prediction = 0
+    def execute(self, CPL, order_book, user):
+        orders = user.Corderbook
+        candlesR = self.candles
+        currminR = self.currmin - 1
         pass
+    

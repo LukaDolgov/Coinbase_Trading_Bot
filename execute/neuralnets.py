@@ -57,6 +57,7 @@ class LSTM_model():
         scaler = MinMaxScaler(feature_range=(0, 1))
         scaled_data = scaler.fit_transform(df)
         joblib.dump(scaler, "scaler.pkl") #save scalar conversion
+        self.scaler = scaler
         print(df.shape)
         # 3. Create sequences
         def create_sequences(data, seq_length):
@@ -225,6 +226,9 @@ prevweights = 0
 #update in days sets of 300
 
 #testing
-#LSTM_DAY_TRACKER = LSTM_model(prevmod, historic_simul("1D", 900), 0)
-#print(LSTM_DAY_TRACKER.traindata)
-#print(LSTM_DAY_TRACKER.generate_model())
+""" 
+def main_train_nets():
+    LSTM_DAY_TRACKER = LSTM_model(prevmod, historic_simul("1D", 900), 0)
+    print(LSTM_DAY_TRACKER.traindata)
+    print(LSTM_DAY_TRACKER.generate_model())
+"""

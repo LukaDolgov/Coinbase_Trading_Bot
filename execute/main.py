@@ -7,24 +7,27 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import mplfinance as mpf
 from classes import user, candle, check_orders, UserLimitOrder, UserBuyLimitOrder, UserSellLimitOrder, UserStopSellLimitOrder
-from strategies import strategy1
-from neuralnets import LSTM_model
+from strategies import strategy1, strategy2
+from neuralnets import LSTM_model, historic_simul
 import numpy as np
 import json
 import requests
 from tensorflow.keras.models import model_from_json
 import joblib
-    
 
+from dotenv import load_dotenv
+import os
 
+load_dotenv("API_KEY.env")
 
-API_KEY = "organizations/a53e9113-6e00-4977-9ed9-39625d25e778/apiKeys/9b08db99-7161-4c48-8284-a40896be0f7e"
-PRIV_KEY = "-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIK22c8FX5bQDFObeJN4HezU+qZdaq1GfAB5t3oZdz8huoAoGCCqGSM49\nAwEHoUQDQgAEIN4XUIofwHAC1bweFaNr3M4tPgpsC2kNr/OT91l/J+1nT5v+aNt/\njgbbnjWMuyd25m9OHmfciD/y6YMEHjnLTw==\n-----END EC PRIVATE KEY-----\n"
-client = EnhancedRESTClient(api_key=API_KEY, api_secret=PRIV_KEY)
+# Access the API key
+api_key = os.getenv('API_KEY')
+PUBLIC_KEY = "organizations/a53e9113-6e00-4977-9ed9-39625d25e778/apiKeys/9b08db99-7161-4c48-8284-a40896be0f7e"
+client = EnhancedRESTClient(api_key=PUBLIC_KEY, api_secret=api_key)
 
 #change product here
 PRODUCT = "BTC-USD"
-STRATUSE = strategy1()
+STRATUSE = 0
 LENGTH_PER_MIN = 5
 
 def set_time_to_utc_minus_5():
@@ -222,8 +225,11 @@ def main():
         training_data = json.load(json_file)
     scaler = joblib.load("scaler.pkl")
     LSTM_DAY_TRACKER = LSTM_model(loaded_model, training_data, scaler)
-    # LSTM_DAY_TRACKER.generate_model()
-    LSTM_DAY_TRACKER.use_model(input_LSTM("1D"))
+    input_train = int(input("would you like to train the LSTM model 0 (no) 1 (yes): "))
+    if input_train == 1:
+        LSTM_DAY_TRACKER = LSTM_model(None, historic_simul("1D", 900), None) # 900 days of data
+        LSTM_DAY_TRACKER.generate_model()
+    LSTM_result = LSTM_DAY_TRACKER.use_model(input_LSTM("1D"))
     #tracks minutes, never resets as of now
     min_counter = []
     lows = []
@@ -232,12 +238,18 @@ def main():
     closes = []
     candles = []
     user_trader = user(USDbalance, CRYPTbalance, Corderbook)
-    input_test = input("input 0 or 1 for testing mode/normal mode: ")
+    input_test = input("input 0 or 1 for testing mode/normal mode (order test): ")
+    input_test2 = input("input 1 or 2 for strategy to use: ")
     print(user_trader.Corderbook)
     #temp vars orders in form percent, current price, quantity (in crypto) 1 to not add, 0 to add
     if int(input_test) == 0:
         product = client.get_product(product_id=PRODUCT)
         user_trader.Corderbook.append(UserBuyLimitOrder(0.01, float(product.price), 0.1))
+    if int(input_test2) == 1:
+        STRATUSE = strategy1()
+    else:
+        STRATUSE = strategy2()
+        STRATUSE.price_prediction = LSTM_result
     print("Corderbook length:", len(user_trader.Corderbook))
     second_counter = 0
     min_increment = 0
@@ -285,7 +297,7 @@ def main():
                 print("winrate: " + str(STRATUSE.winrate))
                 print("updated graph")
                 #for testing
-                if min_increment >= 5:
+                if min_increment >= 60:
                     for order in user_trader.Corderbook:
                         if order.terminated == False:
                             order.cancelled = True
