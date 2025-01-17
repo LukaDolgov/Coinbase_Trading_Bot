@@ -2,6 +2,7 @@ from classes import user, candle, check_orders, UserLimitOrder, UserBuyLimitOrde
 #ENT = entr
 #IPSH = in progress sell-high
 #IPSL = in progress sell-low
+#RR is Reward:Risk
 class trade():
     def __init__(self):
         self.Entry = []
@@ -13,7 +14,7 @@ class trade():
 class strategy1():
     def __init__(self):
         self.candles = []
-        self.RR = 4/6
+        self.RR = 6/4
         self.numtrades = 0
         self.currmin = 0
         self.winrate = 0
@@ -57,7 +58,7 @@ class strategy1():
             if self.IPSHtrades[i].terminated:
                 orders.remove(self.IPSLtrades[i])
                 self.numtrades += 1
-            elif self.IPSLtrades[i].terminated:
+            if self.IPSLtrades[i].terminated:
                 orders.remove(self.IPSHtrades[i])
                 self.numtrades += 1
         return user
@@ -73,10 +74,16 @@ class strategy1():
         return float((countwins + 1) / countlosses) * 100 #in percent
 
 #LSTM model Long-term Trading and analysis
+#Kelly Criterion Formula for determining staking equity 
+
+def KC_formula(prob_success, to_win):
+    fraction_to_invest = (float(prob_success * to_win) - (1 - prob_success)) / float(to_win)
+    return fraction_to_invest
+    
 class strategy2():
     def __init__(self):
         self.candles = []
-        self.RR = 1/1
+        self.RR = 6/3
         self.numtrades = 0
         self.currmin = 0
         self.winrate = 0
@@ -85,9 +92,49 @@ class strategy2():
         self.IPSHtrades = []
         self.IPSLtrades = []
         self.price_prediction = 0
+        self.single_exec = False
     def execute(self, CPL, order_book, user):
         orders = user.Corderbook
         candlesR = self.candles
         currminR = self.currmin - 1
+        confidence = 0
+        percent_compare = self.price_prediction / CPL
+        if percent_compare > 1 and self.single_exec == False:
+            real_percent_compare = percent_compare - 1
+            if real_percent_compare > 0.05:
+                confidence = .75
+            elif real_percent_compare < 0.025:
+                confidence = .25
+            else:
+                confidence = .5
+            b = self.RR
+            optimal_stake = KC_formula(confidence, b)
+            possible_cryptobuy = float(user.USDbalance / CPL)
+            amount_to_buy = possible_cryptobuy * optimal_stake
+            trade = UserBuyLimitOrder(0.01, float(CPL), amount_to_buy) #dynamically adjusted buy of bitcoin 
+            orders.append(trade) 
+            self.ENTtrades.append(trade)
+            self.reset = len(candlesR)
+        if len(self.ENTtrades) > 0:
+            if self.ENTtrades[0].terminated == True:
+                self.ENTtrades = []
+                tradeup = UserSellLimitOrder(6, float(CPL * 0.9999), amount_to_buy) # 6% reward to 4% loss
+                tradedown = UserStopSellLimitOrder(3, float(CPL * 0.9999), amount_to_buy)
+                orders.append(tradeup)
+                orders.append(tradedown)
+                self.IPSHtrades.append(tradeup)
+                self.IPSLtrades.append(tradedown)
+        for i in range(len(self.IPSHtrades)):
+            if self.IPSHtrades[i].terminated:
+                orders.remove(self.IPSLtrades[i])
+                self.numtrades += 1
+            if self.IPSLtrades[i].terminated:
+                orders.remove(self.IPSHtrades[i])
+                self.numtrades += 1
+        self.single_exec = True
+        return user
+            
+            
+            
         pass
     
