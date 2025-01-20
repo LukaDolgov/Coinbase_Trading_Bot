@@ -91,14 +91,14 @@ class strategy2():
         self.ENTtrades = []
         self.IPSHtrades = []
         self.IPSLtrades = []
-        self.price_prediction = 0
+        self.price_prediction = float(0)
         self.single_exec = False
     def execute(self, CPL, order_book, user):
         orders = user.Corderbook
         candlesR = self.candles
         currminR = self.currmin - 1
         confidence = 0
-        percent_compare = self.price_prediction / CPL
+        percent_compare = float(self.price_prediction) / float(CPL)
         if percent_compare > 1 and self.single_exec == False:
             real_percent_compare = percent_compare - 1
             if real_percent_compare > 0.05:
