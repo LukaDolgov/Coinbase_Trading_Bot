@@ -27,7 +27,7 @@ client = EnhancedRESTClient(api_key=PUBLIC_KEY, api_secret=api_key)
 #change product here
 PRODUCT = "BTC-USD"
 STRATUSE = 0
-LENGTH_PER_MIN = 5
+LENGTH_PER_MIN = 60
 
 def set_time_to_utc_minus_5():
     # Get the current UTC time
