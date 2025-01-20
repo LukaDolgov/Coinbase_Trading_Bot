@@ -94,11 +94,13 @@ class strategy2():
         self.price_prediction = float(0)
         self.single_exec = False
     def execute(self, CPL, order_book, user):
+        CPL = float(CPL)
         orders = user.Corderbook
         candlesR = self.candles
         currminR = self.currmin - 1
         confidence = 0
-        percent_compare = float(self.price_prediction) / float(CPL)
+        percent_compare = float(self.price_prediction) / CPL
+        amount_bought = 0
         if percent_compare > 1 and self.single_exec == False:
             real_percent_compare = percent_compare - 1
             if real_percent_compare > 0.05:
@@ -109,17 +111,19 @@ class strategy2():
                 confidence = .5
             b = self.RR
             optimal_stake = KC_formula(confidence, b)
-            possible_cryptobuy = float(user.USDbalance / CPL)
-            amount_to_buy = possible_cryptobuy * optimal_stake
-            trade = UserBuyLimitOrder(0.01, float(CPL), amount_to_buy) #dynamically adjusted buy of bitcoin 
-            orders.append(trade) 
-            self.ENTtrades.append(trade)
-            self.reset = len(candlesR)
+            if optimal_stake > 0:
+                possible_cryptobuy = float(user.USDbalance / CPL)
+                amount_to_buy = possible_cryptobuy * optimal_stake
+                amount_bought = amount_to_buy
+                trade = UserBuyLimitOrder(0.01, float(CPL), amount_to_buy) #dynamically adjusted buy of bitcoin 
+                orders.append(trade) 
+                self.ENTtrades.append(trade)
+                self.reset = len(candlesR)
         if len(self.ENTtrades) > 0:
             if self.ENTtrades[0].terminated == True:
                 self.ENTtrades = []
-                tradeup = UserSellLimitOrder(6, float(CPL * 0.9999), amount_to_buy) # 6% reward to 4% loss
-                tradedown = UserStopSellLimitOrder(3, float(CPL * 0.9999), amount_to_buy)
+                tradeup = UserSellLimitOrder(6, float(CPL * 0.9999), amount_bought) # 6% reward to 4% loss
+                tradedown = UserStopSellLimitOrder(3, float(CPL * 0.9999), amount_bought)
                 orders.append(tradeup)
                 orders.append(tradedown)
                 self.IPSHtrades.append(tradeup)
